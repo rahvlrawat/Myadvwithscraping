@@ -1,0 +1,71 @@
+Sauce: https://towardsdatascience.com/a-minimalist-end-to-end-scrapy-tutorial-part-i-11e350bcdec0
+
+---------------------------------------------------------------------------
+Part I Minimal Scrapper
+---------------------------------------------------------------------------
+
+# Virtual env
+$ cd scrapy-tutorial-starter
+$ python3.6 -m venv venv
+$ source venv/bin/activate
+
+>>Basic scrapy 
+
+scrapy startproject tutorial
+
+scrapy genspider <spider_name> <base url>
+
+$ scrapy shell base_url
+
+
+>> Basic scrapy shell 
+quotes = response.xpath("//div[@class='quote']")
+quotes[0].css(".text::text").getall()
+
+>> Calback for next page 
+if next_page is not None:
+            next_page = response.urljoin(next_page)
+            yield scrapy.Request(next_page, callback=self.parse)
+***Shortcuts can be used to further simplify the code above: see this section. Essentially, response.follow supports relative URLs (no need to call urljoin) and automatically uses the href attribute for <a> . So, the code can be shortened further:
+
+for a in response.css('li.next a'):
+            yield response.follow(a, callback=self.parse)***
+
+
+#Scrapy is based on Twisted, a popular event-driven networking framework for Python and thus is asynchronous. This means that the individual author page may not be processed in sync with the corresponding quote, e.g., the order of the author page results may not match the quote order on the page.            
+
+---------------------------------------------------------------------------
+Part 2  ITEMS
+---------------------------------------------------------------------------
+>>Scrapy Architecture
+https://miro.medium.com/max/700/1*4pVKOGNE8MGgZbTgvDhKIQ.png
+
+>>some key reasons to use Item:
+
+    Scrapy is designed around Item and expect Items as outputs from the spider_name
+    Items clearly define the common output data format in a separate file, which enables you to quickly check what structured data you are collecting and prompts exceptions when you mistakenly create inconsistent data, such as by mis-spelling field names in your code — this happens more often than you think :).
+    You can add pre/post processing to each Item field (via ItemLoader), such as trimming spaces, removing special characters, etc., and separate this processing code from the main spider logic to keep your code structured and clean.
+    Adding different item pipelines helps do things like detecting duplicate items and saving items to the database.
+
+>>>
+preferred way is to use ItemLoader as follows:
+
+from scrapy.loader import ItemLoader
+from tutorial.items import QuoteItem
+...
+        
+for quote in quotes:
+    loader = ItemLoader(item=QuoteItem(), selector=quote)
+    loader.add_css('quote_content', '.text::text')
+    loader.add_css('tags', '.tag::text')
+    quote_item = loader.load_item()
+
+---------------------------------------------------------------------------
+Part 3 PIPELINES TO ORM
+---------------------------------------------------------------------------    
+
+>>> The integer values (normally ranging from 0 to 1000), such as 300 as shown above, determine the execution order of the pipelines (lower valued pipeline runs first).
+
+> the relationship.backref keyword is merely a shortcut for building two individual relationship() constructs that refer to each other. 
+>Create sqlite db:
+    sqlite3 scrapy_quotes.db
